@@ -18,4 +18,12 @@
     <PackageReference Include="MudBlazor" Version="7.12.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\POSystem\POSystem.csproj" />
+    <ProjectReference Include="..\ReceivingSystem\ReceivingSystem.csproj" />
+    <ProjectReference Include="..\RentalSystem\RentalSystem.csproj" />
+    <ProjectReference Include="..\SalesSystem\SalesSystem.csproj" />
+    <ProjectReference Include="..\ServiceSystem\ServiceSystem.csproj" />
+  </ItemGroup>
+
 </Project>
