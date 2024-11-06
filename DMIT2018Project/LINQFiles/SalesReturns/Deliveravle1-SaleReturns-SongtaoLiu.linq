@@ -96,7 +96,7 @@ public List<StockItemsView> GetItemByCategoryID(int categoryID)
 				   }).ToList();
 }
 
-public List<SaleRefundView> GetSaleRefund(int saleRefundID)
+public List<SaleRefundsView> GetSaleRefund(int saleRefundID)
 {
 	//	create a list<Exception> to contain all discovered errors
 	List<Exception> errorList = new List<Exception>();
@@ -115,7 +115,7 @@ public List<SaleRefundView> GetSaleRefund(int saleRefundID)
 	
 	return SaleRefunds
 				   .Where(sr => sr.SaleRefundID == saleRefundID)
-				   .Select(sr => new SaleRefundView 
+				   .Select(sr => new SaleRefundsView 
 				   {
 				      SaleRefundID = sr.SaleRefundID,
 					  SaleRefundDate = sr.SaleRefundDate,
@@ -253,7 +253,127 @@ public void SaveSales(SalesView salesView)
 }
 
 
+public void SaveRefund(SaleRefundsView saleRefundsView)
+{
 
+	List<Exception> errorList = new List<Exception>();
+
+	// Validate 
+	if (saleRefundsView == null)
+	{
+		errorList.Add(new ArgumentNullException("SaleRefund cannot be null."));
+	}
+	else
+	{
+		if (saleRefundsView.SaleRefundID <= 0)
+		{
+			errorList.Add(new ArgumentException("Invalid SaleRefund ID."));
+		}
+		if (saleRefundsView.SaleID <= 0)
+		{
+			errorList.Add(new ArgumentException("Invalid Sale ID."));
+		}
+		if (saleRefundsView.EmployeeID <= 0)
+		{
+			errorList.Add(new ArgumentException("Invalid Employee ID."));
+		}
+		if (saleRefundsView.SubTotal <= 0)
+		{
+			errorList.Add(new ArgumentException("SubTotal must be greater than zero."));
+		}
+	}
+
+	// Validate sale details
+	if (saleRefundsView.saleRefundDetails == null || saleRefundsView.saleRefundDetails.Count() == 0)
+	{
+		errorList.Add(new ArgumentException("Sale refund details cannot be null or empty."));
+	}
+	else
+	{
+		foreach (var saleRefundDetail in saleRefundsView.saleRefundDetails)
+		{
+			if (saleRefundDetail.Quantity <= 0)
+			{
+				errorList.Add(new ArgumentException($"Invalid quantity for item ID {saleRefundDetail.StockItemID}."));
+			}
+			if (saleRefundDetail.SellingPrice <= 0)
+			{
+				errorList.Add(new ArgumentException($"Invalid selling price for item ID {saleRefundDetail.StockItemID}."));
+			}
+		}
+	}
+
+	// Any errors, throw an AggregateException
+	if (errorList.Count() > 0)
+	{
+		ChangeTracker.Clear();
+		string errorMsg = "Unable to save.";
+		errorMsg += " Please check error message(s)";
+		throw new AggregateException(errorMsg, errorList);
+	}
+
+	// Save the sale and sale details to the database
+	SaleRefunds saleRefunds = SaleRefunds.FirstOrDefault(sr => sr.SaleRefundID == saleRefundsView.SaleRefundID);
+	if (saleRefunds == null)
+	{
+		saleRefunds = new SaleRefunds
+		{
+			SaleRefundDate = DateTime.Now,
+			SaleID = saleRefundsView.SaleID,
+			EmployeeID = saleRefundsView.EmployeeID,
+			TaxAmount = 0,
+			SubTotal = 0,
+			RemoveFromViewFlag = saleRefundsView.RemoveFromViewFlag
+		};
+	}
+	else
+	{
+		saleRefunds.SaleRefundDate = saleRefundsView.SaleRefundDate;
+		saleRefunds.EmployeeID = saleRefundsView.EmployeeID;
+		saleRefunds.RemoveFromViewFlag = saleRefundsView.RemoveFromViewFlag;
+	}
+
+	// Process each sale refund detail
+	foreach (var saleRefundDetailView in saleRefundsView.saleRefundDetails)
+	{
+		SaleRefundDetails saleRefundDetails = SaleRefundDetails
+			.FirstOrDefault(x => x.SaleRefundDetailID == saleRefundDetailView.SaleRefundDetailID
+								 && x.StockItemID == saleRefundDetailView.StockItemID);
+		if (saleRefundDetails == null)
+		{
+			saleRefundDetails = new SaleRefundDetails
+			{
+				StockItemID = saleRefundDetailView.StockItemID,
+				Quantity = saleRefundDetailView.Quantity,
+				SellingPrice = saleRefundDetailView.SellingPrice
+			};
+			saleRefunds.SaleRefundDetails.Add(saleRefundDetails); // Add new sale refund details
+		}
+		else
+		{
+			// Update existing sale refund detail
+			saleRefundDetails.Quantity = saleRefundDetailView.Quantity;
+			saleRefundDetails.SellingPrice = saleRefundDetailView.SellingPrice;
+		}
+
+		// Update totals if the sale refund detail is valid
+		saleRefunds.SubTotal += saleRefundDetails.Quantity * saleRefundDetails.SellingPrice;
+		saleRefunds.TaxAmount += saleRefundDetails.Quantity * saleRefundDetails.SellingPrice * 0.05m; 
+	}
+
+	// Save changes to the database
+	if (saleRefunds.SaleRefundID == 0)
+	{
+		SaleRefunds.Add(saleRefunds); // Add new sale refund
+	}
+	else
+	{
+		SaleRefunds.Update(saleRefunds); // Update existing sale refund
+	}
+
+	SaveChanges(); 
+
+}
 
 #endregion
 
@@ -316,7 +436,7 @@ public class SaleDetailsView
 	public bool RemoveFromViewFlag { get; set; }
 }
 
-public class SaleRefundView
+public class SaleRefundsView
 {
 	public int SaleRefundID { get; set; }
 	public DateTime SaleRefundDate { get; set; }
@@ -325,6 +445,7 @@ public class SaleRefundView
 	public decimal TaxAmount { get; set; }
 	public decimal SubTotal { get; set; }
 	public bool RemoveFromViewFlag { get; set; }
+	public List<SaleRefundDetailsView> saleRefundDetails { get; set; } = new List<SaleRefundDetailsView>();
 }
 
 public class SaleRefundDetailsView
