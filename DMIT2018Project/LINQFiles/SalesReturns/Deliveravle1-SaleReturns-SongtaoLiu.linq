@@ -31,13 +31,80 @@ void Main()
 //	This region contains all methods responsible 
 //	for executing business logic and operations.
 #region Methods
+
+public List<CategoriesView> GetCategories(int categoryID)
+{
+	//	create a list<Exception> to contain all discovered errors
+	List<Exception> errorList = new List<Exception>();
+
+	// Validate the categoryID 
+	if (categoryID <= 0)
+	{
+		errorList.Add(new ArgumentException("Category ID must be greater than zero."));
+	}
+
+	// Any errors in the error list, throw an AggregateException
+	if (errorList.Count > 0)
+	{
+		throw new AggregateException("Invalid input provided. Please check the error messages.", errorList);
+	}
+	
+	return Categories
+				 .Where(c => c.CategoryID == categoryID)
+				 .Select(c => new CategoriesView
+				 {
+				    CategoryID = c.CategoryID,
+					Description = c.Description,
+					RemoveFromViewFlag = c.RemoveFromViewFlag
+				 }).ToList();
+}
+
+
+public List<StockItemsView> GetItemByCategoryID(int categoryID)
+{
+	//	create a list<Exception> to contain all discovered errors
+	List<Exception> errorList = new List<Exception>();
+
+	// Validate the categoryID 
+	if (categoryID <= 0)
+	{
+		errorList.Add(new ArgumentException("Category ID must be greater than zero."));
+	}
+
+	// Any errors in the error list, throw an AggregateException
+	if (errorList.Count > 0)
+	{
+		throw new AggregateException("Invalid input provided. Please check the error messages.", errorList);
+	}
+
+	return StockItems
+				   .Where(si => si.CategoryID == categoryID)
+				   .Select(si => new StockItemsView 
+				   {
+				      StockItemsID = si.StockItemID,
+					  Description = si.Description,
+					  SellingPrice = si.SellingPrice,
+					  PurchasePrice = si.PurchasePrice,
+					  QuantityOnHand = si.QuantityOnHand,
+					  QuantityOnOrder = si.QuantityOnOrder,
+					  ReOrderLevel = si.ReOrderLevel,
+					  Discontinued = si.Discontinued,
+					  VendorID = si.VendorID,
+					  VendorStockNumber = si.VendorStockNumber,
+					  CategoryID = si.CategoryID,
+					  RemoveFromViewFlag = si.RemoveFromViewFlag					  
+				   }).ToList();
+}
+#endregion
+
+
 public Exception GetInnerException(System.Exception ex)
 {
 	while (ex.InnerException != null)
 		ex = ex.InnerException;
 	return ex;
 }
-#endregion
+
 
 //	This region includes the view models used to 
 //	represent and structure data for the UI.
@@ -54,7 +121,7 @@ public class StockItemsView
 	public int StockItemsID{ get; set; }
 	public string Description { get; set; }
 	public decimal SellingPrice { get; set; }
-	public string PurchasePrice { get; set; }
+	public decimal PurchasePrice { get; set; }
 	public int QuantityOnHand { get; set; }
 	public int QuantityOnOrder{ get; set; }
 	public int ReOrderLevel { get; set; }
