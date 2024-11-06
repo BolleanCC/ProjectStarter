@@ -95,6 +95,166 @@ public List<StockItemsView> GetItemByCategoryID(int categoryID)
 					  RemoveFromViewFlag = si.RemoveFromViewFlag					  
 				   }).ToList();
 }
+
+public List<SaleRefundView> GetSaleRefund(int saleRefundID)
+{
+	//	create a list<Exception> to contain all discovered errors
+	List<Exception> errorList = new List<Exception>();
+
+	// Validate the categoryID 
+	if (saleRefundID <= 0)
+	{
+		errorList.Add(new ArgumentException("SaleRefund ID must be greater than zero."));
+	}
+
+	// Any errors in the error list, throw an AggregateException
+	if (errorList.Count > 0)
+	{
+		throw new AggregateException("Invalid input provided. Please check the error messages.", errorList);
+	}
+	
+	return SaleRefunds
+				   .Where(sr => sr.SaleRefundID == saleRefundID)
+				   .Select(sr => new SaleRefundView 
+				   {
+				      SaleRefundID = sr.SaleRefundID,
+					  SaleRefundDate = sr.SaleRefundDate,
+					  SaleID = sr.SaleID,
+					  EmployeeID = sr.EmployeeID,
+					  TaxAmount = sr.TaxAmount,
+					  SubTotal = sr.SubTotal,
+					  RemoveFromViewFlag = sr.RemoveFromViewFlag					  
+				   }).ToList();
+
+}
+
+public void SaveSales(SalesView salesView)
+{
+
+	List<Exception> errorList = new List<Exception>();
+
+	// Validate 
+	if (salesView == null)
+	{
+		errorList.Add(new ArgumentNullException("Sale cannot be null."));
+	}
+	else
+	{
+		if (salesView.EmployeeID <= 0)
+		{
+			errorList.Add(new ArgumentException("Invalid Employee ID."));
+		}
+		if (string.IsNullOrWhiteSpace(salesView.PaymentType))
+		{
+			errorList.Add(new ArgumentException("Payment type cannot be null or empty."));
+		}
+		if (salesView.SubTotal <= 0)
+		{
+			errorList.Add(new ArgumentException("SubTotal must be greater than zero."));
+		}
+	}
+
+	// Validate sale details
+	if (salesView.saleDetails == null || salesView.saleDetails.Count() == 0)
+	{
+		errorList.Add(new ArgumentException("Sale details cannot be null or empty."));
+	}
+	else
+	{
+		foreach (var saleDetail in salesView.saleDetails)
+		{
+			if (saleDetail.Quantity <= 0)
+			{
+				errorList.Add(new ArgumentException($"Invalid quantity for item ID {saleDetail.StockItemID}."));
+			}
+			if (saleDetail.SellingPrice <= 0)
+			{
+				errorList.Add(new ArgumentException($"Invalid selling price for item ID {saleDetail.StockItemID}."));
+			}
+		}
+	}
+
+	// Any errors, throw an AggregateException
+	if (errorList.Count() > 0)
+	{
+		ChangeTracker.Clear();
+		string errorMsg = "Unable to save.";
+		errorMsg += " Please check error message(s)";
+		throw new AggregateException(errorMsg, errorList);
+	}
+
+	// Save the sale and sale details to the database
+	Sales sale = Sales.FirstOrDefault(s => s.SaleID == salesView.SaleID);
+	if (sale == null)
+	{
+		sale = new Sales
+		{
+			SaleDate = DateTime.Now,
+			EmployeeID = salesView.EmployeeID,
+			PaymentType = salesView.PaymentType,
+			TaxAmount = 0,
+			SubTotal = 0,
+			CouponID = salesView.CouponID,
+			PaymentToken = salesView.PaymentToken,
+			RemoveFromViewFlag = salesView.RemoveFromViewFlag
+		};
+	} 
+	else
+	{
+		sale.SaleDate = salesView.SaleDate;
+		sale.EmployeeID = salesView.EmployeeID;
+		sale.PaymentType = salesView.PaymentType;
+		sale.CouponID = salesView.CouponID;
+		sale.PaymentToken = salesView.PaymentToken;
+		sale.RemoveFromViewFlag = salesView.RemoveFromViewFlag;
+	}
+
+	// Process each sale detail
+	foreach (var saleDetailView in salesView.saleDetails)
+	{
+		// Retrieve the sale detail from the database or create a new one if it doesn't exist
+		SaleDetails saleDetail = SaleDetails
+									.FirstOrDefault(x => x.SaleDetailID == saleDetailView.SaleDetailID
+														 && x.StockItemID == saleDetailView.StockItemID);
+		if (saleDetail == null)
+		{
+			saleDetail = new SaleDetails
+			{
+				StockItemID = saleDetailView.StockItemID,
+				Quantity = saleDetailView.Quantity,
+				SellingPrice = saleDetailView.SellingPrice
+			};
+			sale.SaleDetails.Add(saleDetail); // Add new sale details
+		}
+		else
+		{
+			// Update existing sale detail
+			saleDetail.Quantity = saleDetailView.Quantity;
+			saleDetail.SellingPrice = saleDetailView.SellingPrice;
+		}
+
+		// Update totals if the sale detail is valid
+		sale.SubTotal += saleDetail.Quantity * saleDetail.SellingPrice;
+		sale.TaxAmount += saleDetail.Quantity * saleDetail.SellingPrice * 0.05m; 
+	}
+
+	// Save changes to the database
+	if (sale.SaleID == 0)
+	{
+		Sales.Add(sale); // Add new sale
+	}
+	else
+	{
+		Sales.Update(sale); // Update existing sale
+	}
+
+	SaveChanges(); 
+	
+}
+
+
+
+
 #endregion
 
 
@@ -143,13 +303,14 @@ public class SalesView
 	public int? CouponID { get; set; }
 	public Guid? PaymentToken { get; set; }
 	public bool RemoveFromViewFlag { get; set; }
-}
+	public List<SaleDetailsView> saleDetails { get; set; } = new List<SaleDetailsView>();
+} 
 
 public class SaleDetailsView
 {
 	public int SaleDetailID { get; set; }
 	public int SaleID { get; set; }
-	public int StockIemID{ get; set; }
+	public int StockItemID{ get; set; }
 	public decimal SellingPrice { get; set; }
 	public int Quantity { get; set; }
 	public bool RemoveFromViewFlag { get; set; }
