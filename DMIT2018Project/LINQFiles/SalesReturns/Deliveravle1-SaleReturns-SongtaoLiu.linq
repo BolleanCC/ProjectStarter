@@ -1,6 +1,6 @@
 <Query Kind="Program">
   <Connection>
-    <ID>32451b4c-24be-4b68-aeb7-d6f1718a0935</ID>
+    <ID>244a53c2-9e90-46b1-8d14-62bf20573a96</ID>
     <NamingServiceVersion>2</NamingServiceVersion>
     <Persist>true</Persist>
     <Driver Assembly="(internal)" PublicKeyToken="no-strong-name">LINQPad.Drivers.EFCore.DynamicDriver</Driver>
@@ -8,7 +8,6 @@
     <Server>SONGTAOLIU\SQLEXPRESS</Server>
     <Database>eTools2023</Database>
     <DisplayName>eTools2023-Entity</DisplayName>
-    <NoCapitalization>true</NoCapitalization>
     <DriverData>
       <EncryptSqlTraffic>True</EncryptSqlTraffic>
       <PreserveNumeric1>True</PreserveNumeric1>
@@ -22,9 +21,442 @@
 //	or data processing operations.
 void Main()
 {
+	//	// Placeholder for pass or fail
+		string passFail = string.Empty;
+		
+		#region Get Categories (TestGetCategories)
+		// Header information
+		Console.WriteLine("===================================");
+		Console.WriteLine("           Get Categories          ");
+		Console.WriteLine("===================================");
+		Console.WriteLine();
+		
+		// Pass: Valid Category ID
+		Console.WriteLine("----- Test: Valid Category ID -----");
+		var categories = TestGetCategories(1);
+		passFail = categories.Count() > 0 ? "Pass" : "Fail";
+		Console.WriteLine($"{passFail} - Expected {categories.Count()} categories, found {categories.Count()}");
+		// Fail: Invalid Category ID
+		Console.WriteLine();
+		Console.WriteLine("----- Test: Invalid Category ID -----");
+		categories = TestGetCategories(-1);
+		passFail = categories == null ? "Pass" : "Fail";
+		Console.WriteLine($"{passFail} - Invalid category ID should return null");
+		Console.WriteLine("                                   ");
+		#endregion
+		
+		#region Get Items by Category (TestGetItemByCategoryID)
+		// Header information
+		Console.WriteLine("===================================");
+		Console.WriteLine("     Get Items by Category ID      ");
+		Console.WriteLine("===================================");
+		Console.WriteLine();
+		
+		// Pass: Valid Category ID
+		Console.WriteLine("----- Test: Valid Category ID -----");
+		var items = TestGetItemByCategoryID(1);
+		passFail = items.Count() > 0 ? "Pass" : "Fail";
+		Console.WriteLine($"{passFail} - Expected {items.Count()} items, found {items.Count()}");
+		// Fail: Invalid Category ID
+		Console.WriteLine();
+		Console.WriteLine("----- Test: Invalid Category ID -----");
+		items = TestGetItemByCategoryID(-1);
+		passFail = items == null ? "Pass" : "Fail";
+		Console.WriteLine($"{passFail} - Invalid category ID should return null");
+		Console.WriteLine("                                   ");
+		#endregion
+		
+		#region Get Sale Refund (TestGetSaleRefund)
+		// Header information
+		Console.WriteLine("===================================");
+		Console.WriteLine("           Get Sale Refund         ");
+		Console.WriteLine("===================================");
+		Console.WriteLine();
+		
+		// Pass: Valid Sale Refund ID
+		Console.WriteLine("----- Test: Valid Sale Refund ID -----");
+		var saleRefunds = TestGetSaleRefund(1);
+		passFail = saleRefunds.Count() > 0 ? "Pass" : "Fail";
+		Console.WriteLine($"{passFail} - Expected {saleRefunds.Count()} sale refunds, found {saleRefunds.Count()}");
+		
+		// Fail: Invalid Sale Refund ID
+		Console.WriteLine();
+		Console.WriteLine("----- Test: Invalid Sale Refund ID -----");
+		saleRefunds = TestGetSaleRefund(0);
+		passFail = saleRefunds == null ? "Pass" : "Fail";
+		Console.WriteLine($"{passFail} - Sale refund ID cannot be 0 or invalid");
+		Console.WriteLine("                                    ");
+		#endregion
 	
+		#region Save Sales (TestSaveSales)
+		// Header information
+		Console.WriteLine("===================================");
+		Console.WriteLine("              Save Sales           ");
+		Console.WriteLine("===================================");
+	
+		// Use a valid StockItemID from the StockItems table
+		var stockItem = StockItems.FirstOrDefault();
+		if (stockItem == null)
+		{
+			Console.WriteLine("Fail - No valid StockItem found in the StockItems table.");
+			return;
+		}
+	
+		// Use the SellingPrice from the StockItem
+		var sellingPrice = stockItem.SellingPrice;
+		var quantity = 2; 
+		var subTotal = sellingPrice * quantity;
+	
+		// Dump the tables before saving
+		Console.WriteLine("----- Sales Before Save -----");
+		Sales.Dump("Sales Table Before Save");
+		SaleDetails.Dump("SaleDetails Table Before Save");
+	
+		// Setup a valid object
+		var salesView = new SalesView
+		{
+			SaleID = 0,
+			SaleDate = DateTime.Now,
+			EmployeeID = 1, 
+			PaymentType = "M", 
+			SubTotal = subTotal, 
+			saleDetails = new List<SaleDetailsView>
+		{
+			new SaleDetailsView { StockItemID = stockItem.StockItemID, Quantity = quantity, SellingPrice = sellingPrice }
+		}
+		};
+	
+		// Test: Save the sales
+		Console.WriteLine("\n----- Test: Save Valid SalesView -----");
+		TestSaveSales(salesView);
+	
+		var savedSale = Sales.FirstOrDefault(s => s.EmployeeID == salesView.EmployeeID);
+		if (savedSale == null)
+		{
+			passFail = "Fail";
+			Console.WriteLine($"{passFail} - Sale was not saved successfully");
+		}
+		else
+		{
+			passFail = "Pass";
+			Console.WriteLine($"{passFail} - Sale was saved successfully");
+	
+			// Check if sale details were saved
+			var savedSaleDetails = SaleDetails
+				.Where(sd => sd.SaleID == savedSale.SaleID)
+				.ToList();
+			passFail = savedSaleDetails.Count > 0 ? "Pass" : "Fail";
+			Console.WriteLine($"{passFail} - Sale details were saved successfully");
+	
+			// Dump the updated state of the tables after saving
+			Console.WriteLine("\n----- Sales After Save -----");
+			Sales.Dump("Sales Table After Save");
+			SaleDetails.Dump("SaleDetails Table After Save");
+		}
+	
+		Console.WriteLine("                                  ");
+	#endregion
+
+
+    #region Save Refund (TestSaveRefund)
+	// Header information
+	Console.WriteLine("===================================");
+	Console.WriteLine("             Save Refund           ");
+	Console.WriteLine("===================================");
+
+	var stockItemForRefund = StockItems.FirstOrDefault();
+	if (stockItemForRefund == null)
+	{
+		Console.WriteLine("Fail - No valid StockItem found in the StockItems table.");
+		return;
+	}
+    // Test Case 1: Invalid SaleID
+    Console.WriteLine("Test Case 1: Invalid SaleID");
+    // Use the SellingPrice from the StockItem
+	var sellingPriceForRefund = stockItemForRefund.SellingPrice;
+	var quantityForRefund = 2;
+	var subTotalForRefund = sellingPriceForRefund * quantityForRefund;
+	var invalidSaleRefundsView = new SaleRefundsView
+	{
+		SaleRefundDate = DateTime.Now,
+		SaleID = -1, // Invalid SaleID
+		EmployeeID = 8,
+		TaxAmount = subTotalForRefund * 0.05m,
+		SubTotal = subTotalForRefund,
+		saleRefundDetails = new List<SaleRefundDetailsView>
+	{
+		new SaleRefundDetailsView { StockItemID = stockItemForRefund.StockItemID, Quantity = quantityForRefund, SellingPrice = sellingPriceForRefund }
+	}
+	};
+
+	// Attempt to add the refund with invalid SaleID
+	TestSaveRefund(invalidSaleRefundsView);
+
+	// Validate that the refund with an invalid SaleID was not added
+	var failedSaleRefund = SaleRefunds.FirstOrDefault(sr => sr.EmployeeID == invalidSaleRefundsView.EmployeeID && sr.SaleID == invalidSaleRefundsView.SaleID);
+	passFail = failedSaleRefund == null ? "Pass" : "Fail";
+	Console.WriteLine($"{passFail} - SaleID must be greater than zero");
+
+
+	// Test Case 2: Invalid EmployeeID
+	Console.WriteLine("\nTest Case 2: Invalid EmployeeID");
+	//Use the SellingPrice from the StockItem
+	var invalidEmployeeRefundsView = new SaleRefundsView
+	{
+		SaleRefundDate = DateTime.Now,
+		SaleID = 1, 
+		EmployeeID = -1,// Invalid EmployeeID
+		TaxAmount = subTotalForRefund * 0.05m,
+		SubTotal = subTotalForRefund,
+		saleRefundDetails = new List<SaleRefundDetailsView>
+	{
+		new SaleRefundDetailsView { StockItemID = stockItemForRefund.StockItemID, Quantity = quantityForRefund, SellingPrice = sellingPriceForRefund }
+	}
+	};
+
+	// Attempt to add the refund with invalid SaleID
+	TestSaveRefund(invalidEmployeeRefundsView);
+
+	// Validate that the refund with an invalid SaleID was not added
+	var failedEmployeeRefund = SaleRefunds.FirstOrDefault(sr => sr.EmployeeID == invalidEmployeeRefundsView.EmployeeID && sr.SaleID == invalidEmployeeRefundsView.SaleID);
+	passFail = failedEmployeeRefund == null ? "Pass" : "Fail";
+	Console.WriteLine($"{passFail} - EmployeeID must be greater than zero");
+
+	// Test Case 3: Invalid Subtotal
+	Console.WriteLine("\nTest Case 3: Invalid Subutotal");
+	//Use the SellingPrice from the StockItem
+	var sellingPriceForInvalidSubtotal= stockItemForRefund.SellingPrice;
+	var quantityForInvalidSubtotal = 2;
+	var invalidSubTotal = 0;
+	var invalidSubtotalSaleRefundsView = new SaleRefundsView
+	{
+		SaleRefundDate = DateTime.Now,
+		SaleID = 1, 
+		EmployeeID = 8,
+		TaxAmount = subTotalForRefund * 0.05m,
+		SubTotal = invalidSubTotal,
+		saleRefundDetails = new List<SaleRefundDetailsView>
+	{
+		new SaleRefundDetailsView { StockItemID = stockItemForRefund.StockItemID, Quantity = quantityForInvalidSubtotal, SellingPrice = sellingPriceForInvalidSubtotal }
+	}
+	};
+
+	// Attempt to add the refund with invalid SaleID
+	TestSaveRefund(invalidSubtotalSaleRefundsView);
+
+	// Validate that the refund with an invalid SaleID was not added
+	var failedSubtotalRefund = SaleRefunds.FirstOrDefault(sr => sr.EmployeeID ==  invalidSubtotalSaleRefundsView.EmployeeID && sr.SaleID ==  invalidSubtotalSaleRefundsView.SaleID);
+	passFail = failedSaleRefund == null ? "Pass" : "Fail";
+	Console.WriteLine($"{passFail} - Subtotal must be greater than zero");
+
+	// Test Case 4: Empty saleRefundDetails
+	Console.WriteLine("\nTest Case 4: Empty SaleRefundDetails");
+	//Use the SellingPrice from the StockItem
+	var invalidDatailsSaleRefundsView = new SaleRefundsView
+	{
+		SaleRefundDate = DateTime.Now,
+		SaleID = 1,
+		EmployeeID = 8,
+		TaxAmount = subTotalForRefund * 0.05m,
+		SubTotal = subTotalForRefund,
+		saleRefundDetails = new List<SaleRefundDetailsView>
+	{
+		new SaleRefundDetailsView {}
+	}
+	};
+
+	// Attempt to add the refund with invalid SaleID
+	TestSaveRefund(invalidDatailsSaleRefundsView);
+
+	// Validate that the refund with an invalid SaleID was not added
+	var failedDetailsRefund = SaleRefunds.FirstOrDefault(sr => sr.EmployeeID == invalidDatailsSaleRefundsView.EmployeeID && sr.SaleID == invalidDatailsSaleRefundsView.SaleID);
+	passFail = failedSaleRefund == null ? "Pass" : "Fail";
+	Console.WriteLine($"{passFail} - Details cannot be empty");
+
+	#endregion
+    #region
+	
+	// Dump the tables before saving
+	Console.WriteLine("\n----- SaleRefunds Before Save -----");
+	SaleRefunds.Dump("SaleRefunds Table Before Save");
+	SaleRefundDetails.Dump("SaleRefundDetails Table Before Save");
+	
+	var saleRefundsView = new SaleRefundsView
+	{
+		SaleRefundDate = DateTime.Now,
+		SaleID = 6, 
+		EmployeeID = 8,
+		TaxAmount = subTotalForRefund * 0.05m, 
+		SubTotal = subTotalForRefund,
+		saleRefundDetails = new List<SaleRefundDetailsView>
+		{
+			new SaleRefundDetailsView {   StockItemID = stockItemForRefund.StockItemID, Quantity = quantityForRefund, SellingPrice = sellingPriceForRefund}
+		}
+	};
+
+	// Add the refund
+	TestSaveRefund(saleRefundsView);
+	// Dump the updated tables after saving
+	Console.WriteLine("\n----- SaleRefunds After Save -----");
+	SaleRefunds.Dump("SaleRefunds Table After Save");
+	SaleRefundDetails.Dump("SaleRefundDetails Table After Save");
+	// Check if the sale refund was saved successfully
+	var savedSaleRefund = SaleRefunds.FirstOrDefault(sr => sr.EmployeeID == saleRefundsView.EmployeeID);
+	passFail = savedSaleRefund != null ? "Pass" : "Fail";
+	Console.WriteLine($"{passFail} - Sale refund was saved successfully.");
+
+	if (savedSaleRefund == null)
+	{
+		passFail = "Fail";
+		Console.WriteLine($"{passFail} - Sale refund was not saved successfully.");
+	}
+	else
+	{
+		passFail = "Pass";
+		Console.WriteLine($"{passFail} - Sale refund was saved successfully.");
+
+		var savedSaleRefundDetails = SaleRefundDetails
+			.Where(srd => srd.SaleRefundID == savedSaleRefund.SaleRefundID)
+			.ToList();
+		passFail = savedSaleRefundDetails.Count > 0 ? "Pass" : "Fail";
+		Console.WriteLine($"{passFail} - Sale refund details were saved successfully.");
+	}
+	#endregion
 }
 #region Test Methods
+public List<CategoriesView> TestGetCategories(int categoryID)
+{
+	try
+	{
+		return GetCategories(categoryID);
+	}
+	#region catch all exception
+	catch (AggregateException ex)
+	{
+		foreach (var error in ex.InnerExceptions)
+		{
+			error.Message.Dump();
+		}
+	}
+	catch (ArgumentNullException ex)
+	{
+		GetInnerException(ex).Message.Dump();
+	}
+	catch (Exception ex)
+	{
+		GetInnerException(ex).Message.Dump();
+	}
+	#endregion
+	return null;  //  Ensure a valid return value even on failure
+}
+
+
+public List<StockItemsView> TestGetItemByCategoryID(int categoryID)
+{
+	try
+	{
+		return GetItemByCategoryID(categoryID);
+	}
+	#region catch all exception
+	catch (AggregateException ex)
+	{
+		foreach (var error in ex.InnerExceptions)
+		{
+			error.Message.Dump();
+		}
+	}
+	catch (ArgumentNullException ex)
+	{
+		GetInnerException(ex).Message.Dump();
+	}
+	catch (Exception ex)
+	{
+		GetInnerException(ex).Message.Dump();
+	}
+	#endregion
+	return null;  //  Ensure a valid return value even on failure
+}
+
+
+
+public List<SaleRefundsView> TestGetSaleRefund(int saleRefundID)
+{
+	try
+	{
+		return GetSaleRefund(saleRefundID);
+	}
+	#region catch all exception
+	catch (AggregateException ex)
+	{
+		foreach (var error in ex.InnerExceptions)
+		{
+			error.Message.Dump();
+		}
+	}
+	catch (ArgumentNullException ex)
+	{
+		GetInnerException(ex).Message.Dump();
+	}
+	catch (Exception ex)
+	{
+		GetInnerException(ex).Message.Dump();
+	}
+	#endregion
+	return null;  //  Ensure a valid return value even on failure
+}
+
+public void TestSaveSales(SalesView salesView)
+{
+	try
+	{
+		SaveSales(salesView);
+	}
+	#region catch all exception
+	catch (AggregateException ex)
+	{
+		foreach (var error in ex.InnerExceptions)
+		{
+			error.Message.Dump();
+		}
+	}
+	catch (ArgumentNullException ex)
+	{
+		GetInnerException(ex).Message.Dump();
+	}
+	catch (Exception ex)
+	{
+		GetInnerException(ex).Message.Dump();
+	}
+	#endregion
+}
+
+
+public void TestSaveRefund(SaleRefundsView saleRefundsView)
+{
+	try
+	{
+		SaveRefund(saleRefundsView);
+	}
+	#region catch all exception
+	catch (AggregateException ex)
+	{
+		foreach (var error in ex.InnerExceptions)
+		{
+			error.Message.Dump();
+		}
+	}
+	catch (ArgumentNullException ex)
+	{
+		GetInnerException(ex).Message.Dump();
+	}
+	catch (Exception ex)
+	{
+		GetInnerException(ex).Message.Dump();
+	}
+	#endregion
+}
+
+
 
 #endregion
 
@@ -71,7 +503,7 @@ public List<StockItemsView> GetItemByCategoryID(int categoryID)
 		errorList.Add(new ArgumentException("Category ID must be greater than zero."));
 	}
 
-	// Any errors in the error list, throw an AggregateException
+	// Any errors
 	if (errorList.Count > 0)
 	{
 		throw new AggregateException("Invalid input provided. Please check the error messages.", errorList);
@@ -107,7 +539,7 @@ public List<SaleRefundsView> GetSaleRefund(int saleRefundID)
 		errorList.Add(new ArgumentException("SaleRefund ID must be greater than zero."));
 	}
 
-	// Any errors in the error list, throw an AggregateException
+	// Any errors
 	if (errorList.Count > 0)
 	{
 		throw new AggregateException("Invalid input provided. Please check the error messages.", errorList);
@@ -130,10 +562,9 @@ public List<SaleRefundsView> GetSaleRefund(int saleRefundID)
 
 public void SaveSales(SalesView salesView)
 {
-
 	List<Exception> errorList = new List<Exception>();
 
-	// Validate 
+	// Validate input
 	if (salesView == null)
 	{
 		errorList.Add(new ArgumentNullException("Sale cannot be null."));
@@ -174,7 +605,7 @@ public void SaveSales(SalesView salesView)
 		}
 	}
 
-	// Any errors, throw an AggregateException
+	// Any errors
 	if (errorList.Count() > 0)
 	{
 		ChangeTracker.Clear();
@@ -182,6 +613,9 @@ public void SaveSales(SalesView salesView)
 		errorMsg += " Please check error message(s)";
 		throw new AggregateException(errorMsg, errorList);
 	}
+
+	// Debugging
+	Console.WriteLine($"SaleID: {salesView.SaleID}, EmployeeID: {salesView.EmployeeID}, PaymentType: {salesView.PaymentType}, SubTotal: {salesView.SubTotal}");
 
 	// Save the sale and sale details to the database
 	Sales sale = Sales.FirstOrDefault(s => s.SaleID == salesView.SaleID);
@@ -198,7 +632,7 @@ public void SaveSales(SalesView salesView)
 			PaymentToken = salesView.PaymentToken,
 			RemoveFromViewFlag = salesView.RemoveFromViewFlag
 		};
-	} 
+	}
 	else
 	{
 		sale.SaleDate = salesView.SaleDate;
@@ -212,10 +646,12 @@ public void SaveSales(SalesView salesView)
 	// Process each sale detail
 	foreach (var saleDetailView in salesView.saleDetails)
 	{
+		// Debugging
+		Console.WriteLine($"Processing SaleDetail: StockItemID: {saleDetailView.StockItemID}, Quantity: {saleDetailView.Quantity}, SellingPrice: {saleDetailView.SellingPrice}");
+
 		// Retrieve the sale detail from the database or create a new one if it doesn't exist
 		SaleDetails saleDetail = SaleDetails
-									.FirstOrDefault(x => x.SaleDetailID == saleDetailView.SaleDetailID
-														 && x.StockItemID == saleDetailView.StockItemID);
+			.FirstOrDefault(x => x.SaleDetailID == saleDetailView.SaleDetailID && x.StockItemID == saleDetailView.StockItemID);
 		if (saleDetail == null)
 		{
 			saleDetail = new SaleDetails
@@ -235,7 +671,7 @@ public void SaveSales(SalesView salesView)
 
 		// Update totals if the sale detail is valid
 		sale.SubTotal += saleDetail.Quantity * saleDetail.SellingPrice;
-		sale.TaxAmount += saleDetail.Quantity * saleDetail.SellingPrice * 0.05m; 
+		sale.TaxAmount += saleDetail.Quantity * saleDetail.SellingPrice * 0.05m;
 	}
 
 	// Save changes to the database
@@ -248,27 +684,21 @@ public void SaveSales(SalesView salesView)
 		Sales.Update(sale); // Update existing sale
 	}
 
-	SaveChanges(); 
-	
+	SaveChanges();
 }
 
 
 public void SaveRefund(SaleRefundsView saleRefundsView)
 {
-
 	List<Exception> errorList = new List<Exception>();
-
-	// Validate 
+	
+	// Validate input
 	if (saleRefundsView == null)
 	{
-		errorList.Add(new ArgumentNullException("SaleRefund cannot be null."));
+		errorList.Add(new ArgumentException("saleRefund cannot be null"));
 	}
 	else
 	{
-		if (saleRefundsView.SaleRefundID <= 0)
-		{
-			errorList.Add(new ArgumentException("Invalid SaleRefund ID."));
-		}
 		if (saleRefundsView.SaleID <= 0)
 		{
 			errorList.Add(new ArgumentException("Invalid Sale ID."));
@@ -279,101 +709,71 @@ public void SaveRefund(SaleRefundsView saleRefundsView)
 		}
 		if (saleRefundsView.SubTotal <= 0)
 		{
-			errorList.Add(new ArgumentException("SubTotal must be greater than zero."));
+			errorList.Add(new ArgumentException("Invalid Subtotal."));
 		}
 	}
-
-	// Validate sale details
-	if (saleRefundsView.saleRefundDetails == null || saleRefundsView.saleRefundDetails.Count() == 0)
+		
+	// Validate sale refund details
+	if (saleRefundsView.saleRefundDetails == null || !saleRefundsView.saleRefundDetails.Any())
 	{
 		errorList.Add(new ArgumentException("Sale refund details cannot be null or empty."));
 	}
 	else
 	{
-		foreach (var saleRefundDetail in saleRefundsView.saleRefundDetails)
-		{
-			if (saleRefundDetail.Quantity <= 0)
+		foreach (var detail in saleRefundsView.saleRefundDetails)
+	    {
+			if (detail.Quantity <= 0)
 			{
-				errorList.Add(new ArgumentException($"Invalid quantity for item ID {saleRefundDetail.StockItemID}."));
+				errorList.Add(new ArgumentException($"Invalid quantity for item ID {detail.StockItemID}."));
 			}
-			if (saleRefundDetail.SellingPrice <= 0)
+			if (detail.SellingPrice <= 0)
 			{
-				errorList.Add(new ArgumentException($"Invalid selling price for item ID {saleRefundDetail.StockItemID}."));
+				errorList.Add(new ArgumentException($"Invalid selling price for item ID {detail.StockItemID}."));
+			}
+			// Check if the StockItemID exists in the database
+			var stockItem = StockItems.FirstOrDefault(si => si.StockItemID == detail.StockItemID);
+			if (stockItem == null)
+			{
+				errorList.Add(new ArgumentException($"StockItemID {detail.StockItemID} does not exist in the database."));
 			}
 		}
 	}
-
-	// Any errors, throw an AggregateException
-	if (errorList.Count() > 0)
+			
+	// If any validation errors were found, throw an exception
+	if (errorList.Any())
 	{
 		ChangeTracker.Clear();
-		string errorMsg = "Unable to save.";
-		errorMsg += " Please check error message(s)";
-		throw new AggregateException(errorMsg, errorList);
-	}
+		throw new AggregateException("Unable to save. Please check error messages.", errorList);
+    }
 
-	// Save the sale and sale details to the database
-	SaleRefunds saleRefunds = SaleRefunds.FirstOrDefault(sr => sr.SaleRefundID == saleRefundsView.SaleRefundID);
-	if (saleRefunds == null)
+	// Create a new SaleRefunds object
+	SaleRefunds saleRefunds = new SaleRefunds
 	{
-		saleRefunds = new SaleRefunds
-		{
-			SaleRefundDate = DateTime.Now,
-			SaleID = saleRefundsView.SaleID,
-			EmployeeID = saleRefundsView.EmployeeID,
-			TaxAmount = 0,
-			SubTotal = 0,
-			RemoveFromViewFlag = saleRefundsView.RemoveFromViewFlag
-		};
-	}
-	else
-	{
-		saleRefunds.SaleRefundDate = saleRefundsView.SaleRefundDate;
-		saleRefunds.EmployeeID = saleRefundsView.EmployeeID;
-		saleRefunds.RemoveFromViewFlag = saleRefundsView.RemoveFromViewFlag;
-	}
+		SaleRefundDate = saleRefundsView.SaleRefundDate,
+		SaleID = saleRefundsView.SaleID,
+		EmployeeID = saleRefundsView.EmployeeID,
+		TaxAmount = saleRefundsView.TaxAmount,
+		SubTotal = saleRefundsView.SubTotal,
+		RemoveFromViewFlag = saleRefundsView.RemoveFromViewFlag
+	};
 
-	// Process each sale refund detail
+	// Add SaleRefundDetails
 	foreach (var saleRefundDetailView in saleRefundsView.saleRefundDetails)
 	{
-		SaleRefundDetails saleRefundDetails = SaleRefundDetails
-			.FirstOrDefault(x => x.SaleRefundDetailID == saleRefundDetailView.SaleRefundDetailID
-								 && x.StockItemID == saleRefundDetailView.StockItemID);
-		if (saleRefundDetails == null)
+		SaleRefundDetails saleRefundDetails = new SaleRefundDetails
 		{
-			saleRefundDetails = new SaleRefundDetails
-			{
-				StockItemID = saleRefundDetailView.StockItemID,
-				Quantity = saleRefundDetailView.Quantity,
-				SellingPrice = saleRefundDetailView.SellingPrice
-			};
-			saleRefunds.SaleRefundDetails.Add(saleRefundDetails); // Add new sale refund details
-		}
-		else
-		{
-			// Update existing sale refund detail
-			saleRefundDetails.Quantity = saleRefundDetailView.Quantity;
-			saleRefundDetails.SellingPrice = saleRefundDetailView.SellingPrice;
-		}
-
-		// Update totals if the sale refund detail is valid
-		saleRefunds.SubTotal += saleRefundDetails.Quantity * saleRefundDetails.SellingPrice;
-		saleRefunds.TaxAmount += saleRefundDetails.Quantity * saleRefundDetails.SellingPrice * 0.05m; 
+			StockItemID = saleRefundDetailView.StockItemID,
+			Quantity = saleRefundDetailView.Quantity,
+			SellingPrice = saleRefundDetailView.SellingPrice
+		};
+		saleRefunds.SaleRefundDetails.Add(saleRefundDetails);
 	}
 
-	// Save changes to the database
-	if (saleRefunds.SaleRefundID == 0)
-	{
-		SaleRefunds.Add(saleRefunds); // Add new sale refund
-	}
-	else
-	{
-		SaleRefunds.Update(saleRefunds); // Update existing sale refund
-	}
-
-	SaveChanges(); 
-
+	// Add new SaleRefunds to the database
+	SaleRefunds.Add(saleRefunds);
+	SaveChanges();
 }
+
 
 #endregion
 
@@ -457,5 +857,6 @@ public class SaleRefundDetailsView
 	public int Quantity { get; set; }
 	public bool RemoveFromViewFlag { get; set; }
 }
+
 #endregion
 
